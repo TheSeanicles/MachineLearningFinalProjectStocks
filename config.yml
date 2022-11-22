@@ -1,0 +1,5 @@
+path: data
+delete_data: False
+delete_last_download: True
+S&P500: True
+tickers: ['RBLX','UBER']
