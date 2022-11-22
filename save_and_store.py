@@ -131,5 +131,5 @@ if __name__ == '__main__':
             tick_list.append(t)
     for t in config['tickers']:
         tick_list.append(t)
-    # stock_save(tick_list)
+    stock_save(tick_list)
     plot_stock_data_stored(tick_list)
