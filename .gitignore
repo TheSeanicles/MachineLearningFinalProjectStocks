@@ -4,3 +4,4 @@
 .idea/modules.xml
 .idea/StockTrader2.0.iml
 .idea/vcs.xml
+*.csv
