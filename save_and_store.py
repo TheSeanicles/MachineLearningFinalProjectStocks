@@ -100,6 +100,7 @@ def stock_save(tickers_list):
                 if exists(config['path'] + '/' + t + '.csv'):
                     original_data = pd.read_csv(config['path'] + '/' + t + '.csv')
                     merge_data = pd.merge(new_data, original_data, how='outer')
+                    merge_data = merge_data[merge_data.Datetime != 'NaN']
                     merge_data.to_csv(config['path'] + '/' + t + '.csv', index=False)
                 else:
                     new_data.to_csv(config['path'] + '/' + t + '.csv')
