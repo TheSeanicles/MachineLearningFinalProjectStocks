@@ -1,4 +1,4 @@
-path: data
+path: 5minData
 delete_data: True
 delete_last_download: True
 S&P500: True

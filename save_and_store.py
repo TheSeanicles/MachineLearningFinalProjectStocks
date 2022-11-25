@@ -6,6 +6,8 @@ from os.path import exists
 import os
 import yaml
 
+# THIS FILE SAVES THE PAST 60 DAYS OF STOCK DATA AT A 5 MINUTE INTERVAL
+
 
 with open('config.yml', 'r') as file:
     config = yaml.safe_load(file)
@@ -47,8 +49,8 @@ def plot_stock_data_download(tickers_list, time_duration, time_interval):
 
 def plot_stock_data_stored(tickers_list):
     for t in tickers_list:
-        if exists(config['path'] + '/' + t + '.csv'):
-            data = pd.read_csv(config['path'] + '/' + t + '.csv')
+        if exists(config['path'] + '/' + t + '.pkl'):
+            data = pd.read_pickle(config['path'] + '/' + t + '.pkl')
             # Plot all the close prices
             ((data['Close'].pct_change() + 1).cumprod()).plot(figsize=(10, 7))
 
@@ -97,13 +99,13 @@ def stock_save(tickers_list):
                                threads='True')
             if not new_data.empty:
                 # EXPORT DATA TO BETTER MANIPULATE
-                if exists(config['path'] + '/' + t + '.csv'):
-                    original_data = pd.read_csv(config['path'] + '/' + t + '.csv')
+                if exists(config['path'] + '/' + t + '.pkl'):
+                    original_data = pd.read_pickle(config['path'] + '/' + t + '.pkl')
                     merge_data = pd.merge(new_data, original_data, how='outer')
                     merge_data = merge_data[merge_data.Datetime != 'NaN']
-                    merge_data.to_csv(config['path'] + '/' + t + '.csv', index=False)
+                    merge_data.to_pickle(config['path'] + '/' + t + '.pkl', index=False)
                 else:
-                    new_data.to_csv(config['path'] + '/' + t + '.csv')
+                    new_data.to_pickle(config['path'] + '/' + t + '.pkl')
 
         with open(config['path'] + '/last_download.txt', 'w') as f:
             write_str = tod.strftime('%Y-%m-%d %H:%M:%S.%f')
@@ -133,4 +135,4 @@ if __name__ == '__main__':
     for t in config['tickers']:
         tick_list.append(t)
     stock_save(tick_list)
-    plot_stock_data_stored(tick_list)
+    # plot_stock_data_stored(tick_list)

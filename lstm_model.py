@@ -18,18 +18,18 @@ def dataset_from_tickers(tickers_list):
     # Use Smallest Stock Dataset Size for Model Inputs
     dataset_size_list = []
     for t in tickers_list:
-        if exists(config['path'] + '/' + t + '.csv'):
-            dataset_size_list.append(len(pd.read_csv(config['path'] + '/' + t + '.csv')))
+        if exists(config['path'] + '/' + t + '.pkl'):
+            dataset_size_list.append(len(pd.read_pickle(config['path'] + '/' + t + '.pkl')))
     frame_size = min(dataset_size_list)
 
     arrays_to_stack = []
     for t in tickers_list:
-            if exists(config['path'] + '/' + t + '.csv'):
-                df = pd.read_csv(config['path'] + '/' + t + '.csv')
+            if exists(config['path'] + '/' + t + '.pkl'):
+                df = pd.read_pickle(config['path'] + '/' + t + '.pkl')
                 date_time = pd.to_datetime(df.pop('Datetime'), format='%Y-%m-%d %H:%M:%S%z')
                 timestamp_s = date_time.map(pd.Timestamp.timestamp)
                 day = 24 * 60 * 60
-                year = (365.2425) * day
+                year = 365.2425 * day
                 # Normalize df before adding time back
                 df = (df - df.mean()) / df.std()
                 df['Day sin'] = np.sin(timestamp_s * (2 * np.pi / day))
@@ -41,28 +41,27 @@ def dataset_from_tickers(tickers_list):
 
 
 def plot_prediction(val_data, prediction):
+    fig, axs = plt.subplots(val_data.shape[0])
     for i in range(val_data.shape[0]):
         # Plot all the close prices
-        plt.plot(val_data[i, :, 3], label='data')
-        plt.plot(prediction[i, :, 3], label='prediction')
+        axs[i].plot(val_data[i, :, 3], label='data')
+        axs[i].plot(prediction[i, :, 3], label='prediction')
 
         # Show the legend
-        plt.legend()
+        axs[i].legend()
 
         # Define the label for the title of the figure
-        plt.title('Close', fontsize=16)
+        axs[i].set_title('Close')
 
         # Define the labels for x-axis and y-axis
-        plt.ylabel('Normalized Close Value', fontsize=14)
-        plt.xlabel('Samples', fontsize=14)
+        axs[i].set_ylabel('Normalized Close Value')
+        axs[i].set_xlabel('Samples')
 
-        # Plot the grid lines
-        plt.grid(which="major", color='k', linestyle='-.', linewidth=0.5)
-        plt.show()
+    plt.show()
 
 
 def train_lstm_model(data):
-    max_epochs = 200
+    max_epochs = 20
     samples = data.shape[0]
     frame_size = data.shape[1]
     features = data.shape[2]
