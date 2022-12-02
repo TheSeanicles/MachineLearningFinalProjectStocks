@@ -24,7 +24,8 @@ def kmeans_dataset_from_tickers(tickers_list):
     for t in tickers_list:
         if exists(config['path'] + '/' + t + '.pkl'):
             dataset_size_list.append(len(pd.read_pickle(config['path'] + '/' + t + '.pkl')))
-    frame_size = min(dataset_size_list)
+    min_frame_size = min(dataset_size_list)
+    frame_size = 50
 
     arrays_to_stack = []
     new_t_list = []
@@ -33,8 +34,8 @@ def kmeans_dataset_from_tickers(tickers_list):
                 new_t_list.append(t)
                 df = pd.read_pickle(config['path'] + '/' + t + '.pkl')
                 df = (df - df.mean()) / df.std()
-                arrays_to_stack.append(df.iloc[-frame_size:-1].to_numpy())
-    return np.stack(arrays_to_stack), new_t_list
+                arrays_to_stack.append(df.iloc[0:frame_size].to_numpy())
+    return np.stack(arrays_to_stack), new_t_list, min_frame_size - 1
 
 
 def train_kmeans(data):
@@ -61,20 +62,20 @@ def train_tseries_kmeans(data, tickers_list):
         print('Feature: ' + str(f))
         scaler = StandardScaler()
         scaled_features = scaler.fit_transform(data[:, :, f])
-        # sse = []
-        # for k in range(1, 11):
-        #     print('Number of Clusters: ' + str(k))
-        #     model = TimeSeriesKMeans(n_clusters=k, metric="softdtw", max_iter=10, n_jobs=-1, verbose=1)
-        #     model.fit(scaled_features)
-        #     sse.append(model.inertia_)
-        # knee = KneeLocator(range(1, 11), sse, curve='convex', direction='decreasing')
-        # print('Elbow: ' + str(knee.elbow))
-        # model = TimeSeriesKMeans(n_clusters=knee.elbow, metric="softdtw", max_iter=10, n_jobs=-1, verbose=1)
-        # model.fit(scaled_features)
-        #
-        # Grouped to an elbow of 2 on testing
-        model = TimeSeriesKMeans(n_clusters=2, metric="softdtw", max_iter=10, n_jobs=-1, verbose=1)
+        sse = []
+        for k in range(1, 11):
+            print('Number of Clusters: ' + str(k))
+            model = TimeSeriesKMeans(n_clusters=k, metric="softdtw", max_iter=25, n_jobs=-1, verbose=1)
+            model.fit(scaled_features)
+            sse.append(model.inertia_)
+        knee = KneeLocator(range(1, 11), sse, curve='convex', direction='decreasing')
+        print('Elbow: ' + str(knee.elbow))
+        model = TimeSeriesKMeans(n_clusters=knee.elbow, metric="softdtw", max_iter=25, n_jobs=-1, verbose=1)
         model.fit(scaled_features)
+
+        # Grouped to an elbow of 2 on testing
+        # model = TimeSeriesKMeans(n_clusters=2, metric="softdtw", max_iter=10, n_jobs=-1, verbose=1)
+        # model.fit(scaled_features)
         model.to_pickle('saved_models/kmeans'+str(f))
         counter = 0
         for _ in model.labels_:
@@ -99,7 +100,7 @@ def plot_groups(label_dict):
                 if exists(config['path'] + '/' + t + '.pkl'):
                     df = pd.read_pickle(config['path'] + '/' + t + '.pkl')
                     df = (df - df.mean()) / df.std()
-                    plt.plot(df.to_numpy()[-50:-1, feature])
+                    plt.plot(df.to_numpy()[0:50, feature])
                     plt.title('Group ' + str(group) + ' for feature ' + str(feature))
             plt.savefig('plots/feature'+str(feature)+'Group'+str(group)+'Plot.png')
 
@@ -156,35 +157,41 @@ def lstm_dataset_from_mapped_labels(label_dict):
     return data
 
 
-def train_lstm_model(label_dict):
+def create_lstm_model(label_dict, frame_size):
+    data = label_dict[0][0]
+    # frame_size = data.shape[1]
+    features = data.shape[2]
+    in_size = frame_size // 2
+    out_size = frame_size - in_size
+    # Model
+    model = tf.keras.Sequential([
+        tf.keras.layers.LSTM(32, return_sequences=False),
+        tf.keras.layers.Dense(out_size * features, kernel_initializer=tf.initializers.zeros()),
+        tf.keras.layers.Reshape([out_size, features])
+    ])
+
+    model.compile(optimizer='adam', loss='MSE')
+    return model
+
+
+def train_lstm_model(label_dict, model, frame_size):
     for feature in label_dict:
         for group in label_dict[feature]:
             data = label_dict[feature][group]
 
             max_epochs = 20
             samples = data.shape[0]
-            frame_size = data.shape[1]
-            features = data.shape[2]
+            # frame_size = data.shape[1]
 
             samples_for_evaluation = 3
 
             in_size = frame_size // 2
-            out_size = frame_size - in_size
 
             x = data[:samples - samples_for_evaluation, :in_size, :]
-            y = data[:samples - samples_for_evaluation, in_size:, :]
+            y = data[:samples - samples_for_evaluation, in_size:2 * in_size + 1, :]
 
             validation_data_x = data[samples - samples_for_evaluation:, :in_size, :]
-            validation_data_y = data[samples - samples_for_evaluation:, in_size:, :]
-
-            # Model
-            model = tf.keras.Sequential([
-                tf.keras.layers.LSTM(32, return_sequences=False),
-                tf.keras.layers.Dense(out_size * features, kernel_initializer=tf.initializers.zeros()),
-                tf.keras.layers.Reshape([out_size, features])
-            ])
-
-            model.compile(optimizer='adam', loss='MSE')
+            validation_data_y = data[samples - samples_for_evaluation:, in_size:2 * in_size + 1, :]
 
             model.fit(x=x, y=y, epochs=max_epochs)
 
@@ -204,9 +211,10 @@ if __name__ == '__main__':
             tick_list.append(t)
     for t in config['tickers']:
         tick_list.append(t)
-    model_dataset, tick_list = kmeans_dataset_from_tickers(tick_list)
+    model_dataset, tick_list, min_f_size = kmeans_dataset_from_tickers(tick_list)
     # train_kmeans(model_dataset)
     mapped_labels = train_tseries_kmeans(model_dataset, tick_list)
     plot_groups(mapped_labels)
     model_dataset = lstm_dataset_from_mapped_labels(mapped_labels)
-    train_lstm_model(model_dataset)
+    lstm_model = create_lstm_model(model_dataset, min_f_size)
+    train_lstm_model(model_dataset, lstm_model, min_f_size)
