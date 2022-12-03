@@ -26,7 +26,7 @@ def dataset_from_tickers(tickers_list):
     for t in tickers_list:
             if exists(config['path'] + '/' + t + '.pkl'):
                 df = pd.read_pickle(config['path'] + '/' + t + '.pkl')
-                date_time = pd.to_datetime(df.pop('Datetime'), format='%Y-%m-%d %H:%M:%S%z')
+                date_time = pd.to_datetime(df.index, format='%Y-%m-%d %H:%M:%S%z')
                 timestamp_s = date_time.map(pd.Timestamp.timestamp)
                 day = 24 * 60 * 60
                 year = 365.2425 * day
